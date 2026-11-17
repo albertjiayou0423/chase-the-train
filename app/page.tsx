@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { Bookmark, Camera, Search, TrainFront, TrainTrack } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,6 +9,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AuthStatus } from "@/components/auth-status";
+import { Button } from "@/components/ui/button";
 
 const entries = [
   { type: "车站", name: "北京站", detail: "北京市 · 东城区", code: "BJS" },
@@ -27,7 +30,7 @@ export default function Home() {
   ), [filter, query]);
 
   return <div className="min-h-screen bg-background text-foreground">
-    <header className="border-b"><div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-6"><div className="flex items-center gap-2 font-semibold"><TrainFront className="size-5 text-primary" /><span>Chase The Train</span></div><Badge>界面预览 · 示例数据</Badge></div></header>
+    <header className="border-b"><div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-6"><div className="flex items-center gap-2 font-semibold"><TrainFront className="size-5 text-primary" /><span>Chase The Train</span></div><div className="flex items-center gap-2"><Button variant="outline" size="sm" render={<Link href="/collect" />}>资料采集</Button><Badge>界面预览 · 示例数据</Badge><AuthStatus /></div></div></header>
     <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 md:px-6">
       <div className="space-y-1"><h1 className="text-2xl font-semibold tracking-tight">铁路工作台</h1><p className="text-sm text-muted-foreground">查询资料，整理乘车与拍车记录。</p></div>
       <Tabs defaultValue="library" className="gap-5"><TabsList className="max-w-full overflow-x-auto"><TabsTrigger value="library" className="data-active:text-primary"><Search />资料库</TabsTrigger><TabsTrigger value="rides" className="data-active:text-primary"><TrainTrack />乘车记录</TabsTrigger><TabsTrigger value="sightings" className="data-active:text-primary"><Camera />拍车记录</TabsTrigger><TabsTrigger value="favorites" className="data-active:text-primary"><Bookmark />收藏</TabsTrigger></TabsList>

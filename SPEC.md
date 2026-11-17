@@ -59,12 +59,12 @@ Chase The Train 是给铁路迷使用的资料与记录工具。用户可以查�
 - 数据库：Neon Postgres。实体、来源、导入批次、用户内容分表；搜索先用索引和分页，确有地理需求再引入 PostGIS。
 - 认证：Neon Auth 邮箱登录。应用的 `profiles.role` 决定用户/审核员/管理员权限，默认用户，角色不从客户端参数推断。
 - 照片：Vercel Blob。上传需登录，限制 MIME/大小/数量，解码并重新编码去除 EXIF 位置；私密照片访问受控，记录/账号删除时清理对象。
-- 部署：`featdev1` 推送到 Vercel Preview `trainbeta.huosai.ccwu.cc`。迁移和导入是独立、可审计步骤，不在普通页面请求中运行。
-- 任务：受保护的定时/手动导入。记录开始、结束、成功/失败数、来源版本和错误摘要；全国数据分批可恢复导入。
+- 部署：`featdev1` 推送到 Vercel Preview `trainbeta.huosai.ccwu.cc`。当前 beta 构建前执行幂等建表迁移；正式上线前改为独立、可审计的版本化迁移。数据采集不在构建、定时任务或普通页面请求中运行。
+- 采集：用户在资料采集页主动发起；可跨域的来源由浏览器直接抓取，再提交至服务端持久化为待核验候选。服务端校验会话、来源格式、体积与重复提交。无 Vercel Cron 或其他定时采集。
 
 ### 外部源适配器
 
-`WikidataAdapter.search(query, type, locale)` 限制查询长度，映射 QID、标签、别名、描述、坐标和来源；明确 User-Agent、超时和缓存。`OverpassAdapter.stations(bbox)` 只接受合法且面积有限的日本边界框，生成固定查询模板，不透传用户 Overpass QL；只返回必要字段，设置超时、缓存、并发/频率限制。上游 429/5xx 映射为可重试的 503。导入与候选查询共用解析器。
+浏览器采集器使用 Wikidata 的跨域 API 和支持 CORS 的 Overpass 实例。`WikidataAdapter.search(query, type, locale)` 限制查询长度并映射 QID、标签和来源；`OverpassAdapter.stations(bbox)` 只生成固定模板的小范围查询，不接受任意 Overpass QL。服务端提交接口重新校验外部 ID、坐标、来源 URL、大小和用户身份；这些数据先入待核验表，不能仅凭客户端声明自动成为可信目录。上游 429/5xx 显示可重试状态。国土交通省目录不提供浏览器跨域许可，其版本检查和数据包导入只能由用户主动触发服务端任务；同样不定时运行。
 
 ### 数据模型
 
@@ -94,8 +94,7 @@ Chase The Train 是给铁路迷使用的资料与记录工具。用户可以查�
 | GET | `/operators`, `/operators/:id` | 运营商列表/详情 |
 | GET | `/stations/:id`, `/lines/:id`, `/rolling-stock/:id` | 详情与字段来源 |
 | GET | `/geo/stations?bbox=`, `/sources/status` | 地图视窗资料、数据源状态 |
-| GET | `/external/wikidata?q=&type=` | 受限实时候选搜索，标记未审校 |
-| GET | `/external/overpass/stations?bbox=` | 受限地理候选查询和 OSM 署名 |
+| POST | `/me/source-candidates` | 浏览器采集结果入待核验库，登录、同源和限量 |
 | GET/POST/PATCH/DELETE | `/me/records`, `/me/records/:id` | 本人乘车/拍车记录 |
 | GET/POST/DELETE | `/me/favorites` | 收藏 |
 | POST | `/media/upload` | 认证、校验、去位置元数据并写 Blob |
