@@ -84,8 +84,7 @@ async function overpass(job: Job): Promise<Item[]> {
   });
 }
 
-export async function runCollectorOnce(): Promise<{ state: "idle" | "saved" | "error"; key?: string; count?: number; error?: string }> {
-  if (!navigator.onLine) return { state: "idle" };
+async function runOne(): Promise<{ state: "idle" | "saved" | "error"; key?: string; count?: number; error?: string }> {
   const claimResponse = await fetch("/api/v1/collector/claim", { method: "POST", cache: "no-store" });
   if (!claimResponse.ok) throw new Error(`采集任务领取失败：HTTP ${claimResponse.status}`);
   const claim = await claimResponse.json() as { data: Job | null };
@@ -109,4 +108,15 @@ export async function runCollectorOnce(): Promise<{ state: "idle" | "saved" | "e
     }).catch(() => {});
     return { state: "error", key: job.key, error: message };
   }
+}
+
+export async function runCollectorOnce(): Promise<{ state: "idle" | "saved" | "error"; key?: string; count?: number; error?: string }> {
+  if (!navigator.onLine) return { state: "idle" };
+  let last: { state: "idle" | "saved" | "error"; key?: string; count?: number; error?: string } = { state: "idle" };
+  // Claim and finish jobs sequentially so public upstreams are not overloaded.
+  for (let index = 0; index < 8; index += 1) {
+    last = await runOne();
+    if (last.state === "idle") break;
+  }
+  return last;
 }
