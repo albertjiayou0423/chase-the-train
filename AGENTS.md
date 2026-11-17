@@ -14,3 +14,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Push development commits to `origin/featdev1`.
 - Do not create a pull request unless the user explicitly requests one. If the user requests a pull request and merge, keep `featdev1` after merging.
 - Do not force-push or delete `featdev1` without the user's explicit request.
+
+## UI implementation
+
+- Build interface elements by composing components generated from shadcn/ui. Use Tailwind utilities for layout and spacing and shadcn theme tokens for colors.
+- Avoid bespoke component styling and custom CSS for page elements. Add new shadcn/ui components through the CLI when a needed primitive is missing.
+- Treat the site as a utility: show search, data, and task controls immediately. Do not add marketing hero sections or promotional copy to the application UI.
