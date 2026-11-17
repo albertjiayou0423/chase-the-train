@@ -1,52 +1,77 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Bookmark, Camera, Search, TrainFront, TrainTrack } from "lucide-react";
+import { Bookmark, Camera, ExternalLink, Search, TrainTrack } from "lucide-react";
+import { Brand } from "@/components/brand";
+import { AuthStatus } from "@/components/auth-status";
+import { RecordWorkspace } from "@/components/record-workspace";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AuthStatus } from "@/components/auth-status";
-import { Button } from "@/components/ui/button";
 
-const entries = [
-  { type: "车站", name: "北京站", detail: "北京市 · 东城区", code: "BJS" },
-  { type: "车站", name: "上海虹桥站", detail: "上海市 · 闵行区", code: "SHA" },
-  { type: "线路", name: "京沪高速铁路", detail: "北京南 — 上海虹桥", code: "1,318 km" },
-  { type: "线路", name: "京广高速铁路", detail: "北京西 — 广州南", code: "2,298 km" },
-  { type: "车型", name: "复兴号 CR400AF", detail: "高速动车组 · 中国", code: "CR400AF" },
-  { type: "车型", name: "和谐号 CRH380A", detail: "高速动车组 · 中国", code: "CRH380A" },
-];
+type Kind = "all" | "station" | "line" | "stock" | "operator";
+type Entry = {
+  id: string;
+  kind: Exclude<Kind, "all">;
+  name: string;
+  detail: string;
+  source: "wikidata" | "osm";
+  external_id: string;
+  source_url: string;
+  source_license: string;
+  fetched_at: string;
+};
+const kindLabels: Record<Kind, string> = { all: "全部", station: "车站", line: "线路", stock: "车型", operator: "运营商" };
 
 export default function Home() {
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("全部");
-  const visible = useMemo(() => entries.filter((item) =>
-    (filter === "全部" || item.type === filter) &&
-    `${item.name} ${item.detail} ${item.code}`.toLowerCase().includes(query.trim().toLowerCase())
-  ), [filter, query]);
+  const [kind, setKind] = useState<Kind>("all");
+  const [items, setItems] = useState<Entry[]>([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    async function load() {
+      try {
+        const params = new URLSearchParams({ q: query.trim(), kind, limit: "50" });
+        const response = await fetch(`/api/v1/catalog?${params}`, { cache: "no-store", signal: controller.signal });
+        const body = await response.json();
+        if (!active) return;
+        if (!response.ok) throw new Error(body.error ?? "资料加载失败");
+        setItems(body.data);
+        setError("");
+      } catch (cause) {
+        if (active) setError(cause instanceof Error ? cause.message : "资料加载失败");
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    const delay = window.setTimeout(() => void load(), 250);
+    const refresh = window.setInterval(() => void load(), 60_000);
+    return () => { active = false; controller.abort(); window.clearTimeout(delay); window.clearInterval(refresh); };
+  }, [query, kind]);
 
   return <div className="min-h-screen bg-background text-foreground">
-    <header className="border-b"><div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-6"><div className="flex items-center gap-2 font-semibold"><TrainFront className="size-5 text-primary" /><span>Chase The Train</span></div><div className="flex items-center gap-2"><Button variant="outline" size="sm" render={<Link href="/collect" />}>资料采集</Button><Badge>界面预览 · 示例数据</Badge><AuthStatus /></div></div></header>
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-6 md:px-6">
-      <div className="space-y-1"><h1 className="text-2xl font-semibold tracking-tight">铁路工作台</h1><p className="text-sm text-muted-foreground">查询资料，整理乘车与拍车记录。</p></div>
-      <Tabs defaultValue="library" className="gap-5"><TabsList className="max-w-full overflow-x-auto"><TabsTrigger value="library" className="data-active:text-primary"><Search />资料库</TabsTrigger><TabsTrigger value="rides" className="data-active:text-primary"><TrainTrack />乘车记录</TabsTrigger><TabsTrigger value="sightings" className="data-active:text-primary"><Camera />拍车记录</TabsTrigger><TabsTrigger value="favorites" className="data-active:text-primary"><Bookmark />收藏</TabsTrigger></TabsList>
+    <header className="border-b"><div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 md:px-6"><Brand /><div className="flex items-center gap-2"><Button variant="outline" size="sm" render={<Link href="/collect" />}>数据采集</Button><AuthStatus /></div></div></header>
+    <main className="mx-auto max-w-6xl space-y-5 px-4 py-6 md:px-6">
+      <div><h1 className="text-2xl font-semibold">日本铁路工作台</h1><p className="text-sm text-muted-foreground">查找铁路资料，整理乘车与拍车记录。</p></div>
+      <Tabs defaultValue="library" className="gap-5">
+        <TabsList className="max-w-full overflow-x-auto"><TabsTrigger value="library"><Search />资料库</TabsTrigger><TabsTrigger value="rides"><TrainTrack />乘车记录</TabsTrigger><TabsTrigger value="sightings"><Camera />拍车记录</TabsTrigger><TabsTrigger value="favorites"><Bookmark />收藏</TabsTrigger></TabsList>
         <TabsContent value="library" className="space-y-4">
-          <Card><CardHeader><CardTitle>资料查询</CardTitle><CardDescription>按名称、地点或编号搜索。当前仅有 6 条示例资料。</CardDescription><CardAction><Badge variant="outline">非实时</Badge></CardAction></CardHeader><CardContent className="space-y-4"><InputGroup className="h-10"><InputGroupAddon><Search className="text-primary" /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索车站、线路、车型…" aria-label="搜索资料" /></InputGroup><Tabs value={filter} onValueChange={(value) => setFilter(String(value))}><TabsList>{["全部", "车站", "线路", "车型"].map((item) => <TabsTrigger key={item} value={item} className="data-active:text-primary">{item}</TabsTrigger>)}</TabsList></Tabs></CardContent></Card>
-          <Card><CardHeader><CardTitle>查询结果 <span className="text-muted-foreground">({visible.length})</span></CardTitle><CardDescription>示例内容用于验证界面布局与搜索交互。</CardDescription></CardHeader><CardContent>{visible.length ? <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>类型</TableHead><TableHead>名称</TableHead><TableHead>地点 / 区间 / 属性</TableHead><TableHead>标识</TableHead></TableRow></TableHeader><TableBody>{visible.map((item) => <TableRow key={item.name}><TableCell><Badge variant="secondary">{item.type}</Badge></TableCell><TableCell className="font-medium">{item.name}</TableCell><TableCell className="text-muted-foreground">{item.detail}</TableCell><TableCell className="font-mono text-xs text-muted-foreground">{item.code}</TableCell></TableRow>)}</TableBody></Table></div> : <Empty><EmptyHeader><EmptyMedia variant="icon"><Search /></EmptyMedia><EmptyTitle>没有匹配的资料</EmptyTitle><EmptyDescription>更换关键词或资料类型后重试。</EmptyDescription></EmptyHeader></Empty>}</CardContent></Card>
+          <Card><CardHeader><CardTitle>资料查询</CardTitle><CardDescription>浏览已自动采集的日本车站、线路、车型和运营商资料。</CardDescription></CardHeader><CardContent className="space-y-4"><InputGroup className="h-10"><InputGroupAddon><Search className="text-primary" /></InputGroupAddon><InputGroupInput value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索东京、大阪、山手线…" aria-label="搜索资料" /></InputGroup><Tabs value={kind} onValueChange={(value) => setKind(value as Kind)}><TabsList>{(Object.keys(kindLabels) as Kind[]).map((value) => <TabsTrigger key={value} value={value}>{kindLabels[value]}</TabsTrigger>)}</TabsList></Tabs></CardContent></Card>
+          <Card><CardHeader><CardTitle>查询结果 ({items.length})</CardTitle><CardDescription>按来源标识去重；资料会随打开页面的浏览器采集而更新。</CardDescription></CardHeader><CardContent>{error ? <p className="text-sm text-destructive">{error}</p> : loading ? <p className="text-sm text-muted-foreground">正在加载资料…</p> : items.length ? <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>类型</TableHead><TableHead>名称</TableHead><TableHead>说明</TableHead><TableHead>来源</TableHead><TableHead>抓取时间</TableHead></TableRow></TableHeader><TableBody>{items.map((item) => <TableRow key={item.id}><TableCell><Badge variant="secondary">{kindLabels[item.kind]}</Badge></TableCell><TableCell className="font-medium">{item.name}</TableCell><TableCell className="text-muted-foreground">{item.detail || "暂无说明"}</TableCell><TableCell><a className="inline-flex items-center gap-1 text-primary underline-offset-2 hover:underline" href={item.source_url} target="_blank" rel="noreferrer">{item.source === "wikidata" ? "Wikidata" : "OpenStreetMap"}<ExternalLink className="size-3" /></a><div className="text-xs text-muted-foreground">{item.source_license}</div></TableCell><TableCell className="text-xs text-muted-foreground">{new Date(item.fetched_at).toLocaleString("zh-CN")}</TableCell></TableRow>)}</TableBody></Table></div> : <Empty><EmptyHeader><EmptyMedia variant="icon"><Search /></EmptyMedia><EmptyTitle>暂无匹配资料</EmptyTitle><EmptyDescription>浏览器后台采集开始后会自动入库；也可打开数据采集页查看任务状态。</EmptyDescription></EmptyHeader></Empty>}</CardContent></Card>
         </TabsContent>
-        <TabsContent value="rides"><WorkspaceEmpty icon={<TrainTrack />} title="暂无乘车记录" description="登录与记录功能尚未接入。后续可在这里保存日期、车次和起终点。" /></TabsContent>
-        <TabsContent value="sightings"><WorkspaceEmpty icon={<Camera />} title="暂无拍车记录" description="照片上传和拍车记录功能尚未接入。" /></TabsContent>
-        <TabsContent value="favorites"><WorkspaceEmpty icon={<Bookmark />} title="暂无收藏" description="收藏功能尚未接入。后续可保存车站、线路和车型。" /></TabsContent>
+        <TabsContent value="rides"><RecordWorkspace kind="ride" /></TabsContent>
+        <TabsContent value="sightings"><RecordWorkspace kind="sighting" /></TabsContent>
+        <TabsContent value="favorites"><Card><CardContent><Empty><EmptyHeader><EmptyTitle>暂无收藏</EmptyTitle><EmptyDescription>收藏功能尚在开发中。</EmptyDescription></EmptyHeader></Empty></CardContent></Card></TabsContent>
       </Tabs>
-      <p className="text-xs text-muted-foreground">数据状态：当前为本地示例资料；尚未接入铁路数据源、账户或实时列车信息。</p>
     </main>
   </div>;
-}
-
-function WorkspaceEmpty({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
-  return <Card><CardContent><Empty><EmptyHeader><EmptyMedia variant="icon">{icon}</EmptyMedia><EmptyTitle>{title}</EmptyTitle><EmptyDescription>{description}</EmptyDescription></EmptyHeader></Empty></CardContent></Card>;
 }

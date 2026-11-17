@@ -5,12 +5,12 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const q = (url.searchParams.get("q") ?? "").trim().slice(0, 100);
   const kind = url.searchParams.get("kind") ?? "all";
-  if (!["all", "station", "line", "stock"].includes(kind)) return Response.json({ error: "无效类型" }, { status: 400 });
+  if (!["all", "station", "line", "stock", "operator"].includes(kind)) return Response.json({ error: "无效类型" }, { status: 400 });
   const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? 50) || 50, 1), 50);
   const sql = database();
   const rows = await sql.query(
-    "SELECT id, kind, name, detail, code, source_name, source_url, source_license, updated_at FROM catalog WHERE ($1 = 'all' OR kind = $1) AND ($2 = '' OR name ILIKE '%' || $2 || '%' OR detail ILIKE '%' || $2 || '%' OR code ILIKE '%' || $2 || '%') ORDER BY name LIMIT $3",
+    "SELECT id, kind, name, detail, source, external_id, source_url, source_license, latitude, longitude, fetched_at, updated_at FROM rail_entities WHERE ($1 = 'all' OR kind = $1) AND ($2 = '' OR name ILIKE '%' || $2 || '%' OR detail ILIKE '%' || $2 || '%') ORDER BY updated_at DESC, name LIMIT $3",
     [kind, q, limit]
   );
-  return Response.json({ items: rows });
+  return Response.json({ data: rows, meta: { asOf: new Date().toISOString(), sourceStatus: "persisted" } });
 }
