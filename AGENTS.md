@@ -21,3 +21,4 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - Avoid bespoke component styling and custom CSS for page elements. Add new shadcn/ui components through the CLI when a needed primitive is missing.
 - Treat the site as a utility: show search, data, and task controls immediately. Do not add marketing hero sections or promotional copy to the application UI.
 - Use the shadcn/ui dark theme as the default appearance.
+- Use `#0B49F4` as the brand primary and emphasis color through shadcn theme tokens.
